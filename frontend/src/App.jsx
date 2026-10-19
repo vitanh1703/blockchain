@@ -93,9 +93,13 @@ function App() {
 
   useEffect(() => {
     if (!user) return
-    refresh()
+    // Đọc blockchain ngay rồi lặp lại mỗi POLL_MS
+    const first = setTimeout(refresh, 0)
     const id = setInterval(refresh, POLL_MS)
-    return () => clearInterval(id)
+    return () => {
+      clearTimeout(first)
+      clearInterval(id)
+    }
   }, [refresh, user])
 
   // Tên hiển thị của mọi ví đã liên kết, lấy từ backend

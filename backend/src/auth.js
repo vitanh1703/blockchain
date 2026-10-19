@@ -85,7 +85,7 @@ async function googleCallback(req, res) {
 
   const expiresAt = pendingStates.get(state);
   pendingStates.delete(state);
-  if (!expiresAt || expiresAt < Date.now()) return fail('Phiên đăng nhập đã hết hạn, hãy thử lại');
+  if (!expiresAt || expiresAt < Date.now()) return fail('Yêu cầu đăng nhập không hợp lệ hoặc đã hết hạn, hãy thử lại');
 
   try {
     const { tokens } = await google.getToken(code);

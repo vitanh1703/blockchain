@@ -70,25 +70,36 @@ export async function connectWallet() {
   }
 }
 
-export function errorMessage(err) {
-  if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) return 'Bạn đã huỷ giao dịch'
-  // Ganache có thể trả lý do revert dạng dữ liệu Error(string) thô
-  const data = err?.data || err?.info?.error?.data?.data || err?.info?.error?.data
-  if (!err?.reason && typeof data === 'string' && data.startsWith('0x08c379a0')) {
-    try {
-      return AbiCoder.defaultAbiCoder().decode(['string'], `0x${data.slice(10)}`)[0]
-    } catch {
-      // bỏ qua, dùng các nguồn bên dưới
+/**
+ * Tìm lý do revert của contract trong lỗi. Tuỳ node (Hardhat/Ganache) và ví (MetaMask bọc thêm lớp
+ * "Internal JSON-RPC error"), lý do nằm ở các chỗ khác nhau nên duyệt qua các lớp lồng nhau.
+ */
+function findRevertReason(err, depth = 0) {
+  if (!err || typeof err !== 'object' || depth > 5) return null
+  if (typeof err.reason === 'string' && err.reason && err.reason !== 'revert') return err.reason
+  for (const value of [err.data, err.result]) {
+    if (typeof value === 'string' && value.startsWith('0x08c379a0')) {
+      try {
+        return AbiCoder.defaultAbiCoder().decode(['string'], `0x${value.slice(10)}`)[0]
+      } catch {
+        // dữ liệu không đúng định dạng Error(string)
+      }
     }
   }
-  return (
-    err?.reason ||
-    err?.info?.error?.data?.message ||
-    err?.info?.error?.message ||
-    err?.shortMessage ||
-    err?.message ||
-    String(err)
+  for (const child of [err.info?.error, err.error, err.data, err.cause]) {
+    const found = findRevertReason(child, depth + 1)
+    if (found) return found
+  }
+  // Chỉ nhận đúng mẫu thông báo revert của node (tránh khớp nhầm "missing revert data" của ethers)
+  const m = /(?:VM Exception while processing transaction: revert|execution reverted:|reverted with reason string) '?(.+?)'?$/.exec(
+    typeof err.message === 'string' ? err.message : '',
   )
+  return m ? m[1] : null
+}
+
+export function errorMessage(err) {
+  if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) return 'Bạn đã huỷ giao dịch'
+  return findRevertReason(err) || err?.shortMessage || err?.message || String(err)
 }
 
 /** Trả về tập chỉ số các ô thuộc hàng 5 thắng (để tô sáng). */

@@ -9,4 +9,17 @@ export default defineConfig({
       '/api': 'http://localhost:4000',
     },
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        // Tách thư viện lớn ra chunk riêng: bundle chính nhỏ hơn, trình duyệt cache thư viện giữa các lần build
+        codeSplitting: {
+          groups: [
+            { name: 'ethers', test: /node_modules[\\/](ethers|@noble|@adraffy)/ },
+            { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
+          ],
+        },
+      },
+    },
+  },
 })

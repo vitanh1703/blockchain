@@ -1,0 +1,202 @@
+[
+  {
+    "id": "T01",
+    "name": "Trang đăng nhập Google (backend đã cấu hình)",
+    "ok": true,
+    "note": "Nút \"Đăng nhập bằng Google\" bấm được",
+    "file": "T01.png",
+    "ms": 1151
+  },
+  {
+    "id": "T02",
+    "name": "Chuyển sang trang đăng nhập của Google",
+    "ok": true,
+    "note": "Google hiện trang chọn tài khoản, không lỗi OAuth (redirect_uri=http://localhost:4000/auth/google/callback)",
+    "file": "T02.png",
+    "ms": 3766
+  },
+  {
+    "id": "T03",
+    "name": "Callback Google với state giả bị từ chối (chống CSRF)",
+    "ok": true,
+    "note": "⚠️ Yêu cầu đăng nhập không hợp lệ hoặc đã hết hạn, hãy thử lại",
+    "file": "T03.png",
+    "ms": 599
+  },
+  {
+    "id": "T04",
+    "name": "Vào sảnh sau khi đăng nhập (tài khoản Google)",
+    "ok": true,
+    "note": "Hiện tên Google: Alice Nguyễn",
+    "file": "T04.png",
+    "ms": 757
+  },
+  {
+    "id": "T05",
+    "name": "Kết nối ví MetaMask → cảnh báo chưa liên kết",
+    "ok": true,
+    "note": "Ví MetaMask này chưa liên kết với tài khoản. Liên kết để tên của bạn hiện trên sảnh và bảng xếp hạng.",
+    "file": "T05.png",
+    "ms": 311
+  },
+  {
+    "id": "T06",
+    "name": "Liên kết ví bằng chữ ký số",
+    "ok": true,
+    "note": "Đã liên kết ví 0xFFcf…09f0 với tài khoản",
+    "file": "T06.png",
+    "ms": 457
+  },
+  {
+    "id": "T07",
+    "name": "Đặt nickname",
+    "ok": true,
+    "note": "Tên hiển thị: Alice_Test",
+    "file": "T07.png",
+    "ms": 1107
+  },
+  {
+    "id": "T08",
+    "name": "Người chơi thứ 2 (Bob) đăng nhập + liên kết ví + nickname",
+    "ok": true,
+    "note": "Tên hiển thị: Bob_Test",
+    "file": "T08.png",
+    "ms": 1962
+  },
+  {
+    "id": "T09",
+    "name": "Chặn liên kết ví đã thuộc tài khoản khác",
+    "ok": true,
+    "note": "HTTP 409 — Ví này đã được liên kết với một tài khoản Google khác",
+    "file": null,
+    "ms": 48
+  },
+  {
+    "id": "T10",
+    "name": "Nạp 2 ETH vào ví — deposit()",
+    "ok": true,
+    "note": "Số dư ví game: 🪙 1.4 ETH → 🪙 3.4 ETH",
+    "file": "T10.png",
+    "ms": 3314
+  },
+  {
+    "id": "T11",
+    "name": "Chuyển 0.5 ETH cho Bob bằng nickname — transfer()",
+    "ok": true,
+    "note": "Đã chuyển 0.5 ETH cho Bob_Test — ví Alice: 🪙 2.9 ETH",
+    "file": "T11.png",
+    "ms": 3421
+  },
+  {
+    "id": "T12",
+    "name": "Bob kiểm tra số dư nhận được — balanceOf()",
+    "ok": true,
+    "note": "Ví game Bob: 🪙 0.9 ETH",
+    "file": "T12.png",
+    "ms": 2867
+  },
+  {
+    "id": "T13",
+    "name": "Rút 0.2 ETH về MetaMask — withdraw()",
+    "ok": true,
+    "note": "Ví Alice còn: 🪙 2.7 ETH",
+    "file": "T13.png",
+    "ms": 3218
+  },
+  {
+    "id": "T14",
+    "name": "Rút quá số dư bị contract chặn",
+    "ok": true,
+    "note": "So du khong du",
+    "file": "T14.png",
+    "ms": 390
+  },
+  {
+    "id": "T15",
+    "name": "Lịch sử giao dịch (Alice) — getHistory()",
+    "ok": true,
+    "note": "7 giao dịch: Rút tiền, Chuyển đi, Nạp tiền, Chuyển đi, Nạp tiền, Chuyển đi, Nạp tiền",
+    "file": "T15.png",
+    "ms": 1756
+  },
+  {
+    "id": "T16",
+    "name": "Alice tạo phòng cược 0.1 ETH — createRoom()",
+    "ok": true,
+    "note": "#1 · Bạn",
+    "file": "T16.png",
+    "ms": 559
+  },
+  {
+    "id": "T17",
+    "name": "Bob vào phòng — joinRoom()",
+    "ok": true,
+    "note": "Bàn cờ mở, hũ cược: 💰 0.2 ETH",
+    "file": "T17.png",
+    "ms": 3304
+  },
+  {
+    "id": "T18",
+    "name": "Đánh cờ luân phiên trên chain — makeMove()",
+    "ok": true,
+    "note": "8 nước đi (X: 4 quân hàng ngang, O: 4 quân chặn dưới)",
+    "file": "T18.png",
+    "ms": 8301
+  },
+  {
+    "id": "T19",
+    "name": "Nước thắng: 5 quân liên tiếp → contract trả thưởng",
+    "ok": true,
+    "note": "Bạn chiến thắng! +0.196 ETH",
+    "file": "T19.png",
+    "ms": 1062
+  },
+  {
+    "id": "T20",
+    "name": "Bob thấy kết quả thua trên bàn cờ",
+    "ok": true,
+    "note": "🏆 Alice_Test thắng, 5 ô thắng được tô sáng",
+    "file": "T20.png",
+    "ms": 993
+  },
+  {
+    "id": "T21",
+    "name": "Bảng xếp hạng cập nhật từ blockchain",
+    "ok": true,
+    "note": "🥇 Alice_Test (bạn) 1 trận · thắng 100% 1 / 0 / 0 +0.096 | 🥈 Bob_Test 1 trận · thắng 0% 0 / 1 / 0 −0.100",
+    "file": "T21.png",
+    "ms": 6294
+  },
+  {
+    "id": "T22",
+    "name": "Lịch sử giao dịch (Bob): nhận tiền, đặt cược",
+    "ok": true,
+    "note": "Đặt cược, Nhận tiền, Rút tiền, Nhận tiền, Rút tiền, Nhận tiền",
+    "file": "T22.png",
+    "ms": 1076
+  },
+  {
+    "id": "T23",
+    "name": "Menu tài khoản: thông tin Google + ví liên kết",
+    "ok": true,
+    "note": "Alice_Testalice.test@example.com🔗 Ví liên kết: 0xFFcf…09f0",
+    "file": "T23.png",
+    "ms": 365
+  },
+  {
+    "id": "T24",
+    "name": "Đổi tài khoản Google → phiên cũ bị huỷ, mở bảng chọn tài khoản",
+    "ok": true,
+    "note": "Phiên cũ trả 401; đang ở trang chọn tài khoản của Google",
+    "file": "T24.png",
+    "ms": 3102
+  },
+  {
+    "id": "T25",
+    "name": "Đăng xuất → quay về trang đăng nhập",
+    "ok": true,
+    "note": "Hiện lại trang đăng nhập Google",
+    "file": "T25.png",
+    "ms": 644
+  }
+]
