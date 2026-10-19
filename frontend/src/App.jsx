@@ -214,6 +214,8 @@ function App() {
   const topUpFor = (bet) => (walletBalance != null && walletBalance < bet ? bet - walletBalance : 0n)
   const activeGame = games.find((g) => g.id === activeId)
   const walletMismatch = wallet && !sameAddress(user.walletAddress, wallet.address)
+  // Nhận ra "bạn" trên bảng xếp hạng kể cả khi chưa mở MetaMask (dùng ví đã liên kết)
+  const myAddress = wallet?.address || user.walletAddress
 
   return (
     <div className="bt-root">
@@ -298,6 +300,8 @@ function App() {
           }}
           onCancel={(id) => send(`Đã huỷ phòng #${id}, tiền cược được hoàn vào ví game`, (c) => c.cancelRoom(id))}
           onOpen={openGame}
+          onShowLeaderboard={() => setModal('leaderboard')}
+          rankingAddress={myAddress}
         />
       )}
 
@@ -311,7 +315,7 @@ function App() {
       )}
       {busy && <div className="bt-pending">Đang chờ xác nhận…</div>}
 
-      {modal === 'leaderboard' && <Leaderboard me={wallet?.address} onClose={() => setModal(null)} />}
+      {modal === 'leaderboard' && <Leaderboard me={myAddress} onClose={() => setModal(null)} />}
       {modal === 'rules' && <RulesModal onClose={() => setModal(null)} />}
       {modal === 'history' && <TxHistory me={wallet?.address} nameOf={nameOf} onClose={() => setModal(null)} />}
       {modal === 'nickname' && (

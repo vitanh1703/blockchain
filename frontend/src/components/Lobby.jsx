@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { formatEther, parseEther } from 'ethers'
 import { STATUS, STATUS_LABEL, sameAddress } from '../lib/caro'
+import TopPlayers from './TopPlayers'
 
 const QUICK_BETS = ['0.01', '0.05', '0.1', '0.5']
 
-export default function Lobby({ games, me, nameOf, busy, onCreate, onJoin, onCancel, onOpen }) {
+export default function Lobby({ games, me, nameOf, busy, onCreate, onJoin, onCancel, onOpen, onShowLeaderboard, rankingAddress }) {
   const [bet, setBet] = useState('0.05')
 
   function create(e) {
@@ -60,6 +61,8 @@ export default function Lobby({ games, me, nameOf, busy, onCreate, onJoin, onCan
             {me ? 'Ví game thiếu tiền thì phần còn thiếu được nạp từ MetaMask trong cùng giao dịch.' : 'Kết nối ví MetaMask ở góc trên để chơi.'}
           </p>
         </form>
+
+        <TopPlayers me={rankingAddress} onShowAll={onShowLeaderboard} />
 
         <div className="bt-live">
           <div className="bt-live-head">

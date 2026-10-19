@@ -850,3 +850,31 @@
 .bt-banner span { flex: 1 1 260px; }
 .bt-banner .bt-btn { flex: 0 0 auto; min-width: 0; padding: 8px 14px; font-size: 14px; }
 :root[data-theme='dark'] .bt-banner { background: #3a3020; color: #ffe08a; box-shadow: 0 0 0 3px #8a6d1a, 0 8px 22px var(--bt-shadow); }
+
+/* ================= Top 5 ở sảnh chờ ================= */
+.bt-top { margin-top: 22px; padding-top: 14px; border-top: 1px dashed rgba(120, 100, 130, 0.3); text-align: left; }
+.bt-top-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; font-weight: 800; font-size: 14px; }
+.bt-top-all { border: none; background: none; padding: 2px 4px; color: var(--bt-blue-dark); font-size: 13px; font-weight: 800; cursor: pointer; }
+.bt-top-all:hover { text-decoration: underline; }
+:root[data-theme='dark'] .bt-top-all { color: var(--bt-o); }
+.bt-top-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.bt-top-item {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto 64px;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px 7px 6px;
+  border-radius: 12px;
+  background: var(--bt-soft-bg);
+}
+.bt-top-item.is-me { box-shadow: inset 0 0 0 2px rgba(47, 143, 224, 0.45); }
+.bt-top-item:first-child { background: linear-gradient(90deg, rgba(255, 198, 41, 0.28), var(--bt-soft-bg)); }
+.bt-top-rank { text-align: center; font-weight: 900; font-size: 13px; color: var(--bt-ink-soft); }
+.bt-top-rank.r1,
+.bt-top-rank.r2,
+.bt-top-rank.r3 { font-size: 20px; line-height: 1; }
+.bt-top-name { min-width: 0; font-weight: 800; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bt-top-wins { font-size: 12px; font-weight: 700; color: var(--bt-ink-soft); white-space: nowrap; }
+.bt-top-profit { text-align: right; font-size: 13px; font-weight: 900; font-variant-numeric: tabular-nums; }
+.bt-top-profit.pos { color: var(--bt-green); }
+.bt-top-profit.neg { color: var(--bt-red); }

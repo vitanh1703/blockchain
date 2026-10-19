@@ -13,7 +13,7 @@
 - **Cờ Caro đặt cược**: tạo/vào/huỷ phòng, đánh cờ on-chain, hết giờ, đầu hàng, trả thưởng tự động (phí sàn 2%)
 - **Đăng nhập bằng Google** (OAuth 2.0), chuyển qua lại giữa các tài khoản
 - **Liên kết ví MetaMask** với tài khoản bằng chữ ký số (chứng minh sở hữu ví)
-- **Bảng xếp hạng** đồng bộ từ sự kiện của smart contract (không thể làm giả)
+- **Bảng xếp hạng** đồng bộ từ sự kiện của smart contract (không thể làm giả); **Top 5 cao thủ** hiện ngay ở sảnh chờ
 - Nickname, giao diện sáng/tối, màu nền theo mùa, hỗ trợ điện thoại
 
 ### Đối chiếu yêu cầu đề bài
@@ -89,7 +89,8 @@ blockchain/
 │   │   │   ├── TxHistory.jsx       # Lịch sử giao dịch đọc từ smart contract
 │   │   │   ├── Lobby.jsx           # Sảnh chờ: tạo/vào/huỷ phòng
 │   │   │   ├── GameBoard.jsx       # Bàn cờ 15×15, đồng hồ, kết thúc trận
-│   │   │   ├── Leaderboard.jsx     # Bảng xếp hạng
+│   │   │   ├── Leaderboard.jsx     # Bảng xếp hạng đầy đủ
+│   │   │   ├── TopPlayers.jsx      # Top 5 ở sảnh chờ
 │   │   │   ├── NicknameDialog.jsx
 │   │   │   └── RulesModal.jsx
 │   │   ├── lib/

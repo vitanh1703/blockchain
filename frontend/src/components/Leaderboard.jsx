@@ -1,15 +1,8 @@
 import { useEffect, useState } from 'react'
-import { formatEther } from 'ethers'
 import { api } from '../lib/api'
-import { sameAddress, shortAddress } from '../lib/caro'
+import { formatProfit, sameAddress, shortAddress } from '../lib/caro'
 
 const POLL_MS = 5000
-
-function formatProfit(wei) {
-  const v = BigInt(wei)
-  const eth = Number(formatEther(v < 0n ? -v : v)).toFixed(3)
-  return v > 0n ? `+${eth}` : v < 0n ? `−${eth}` : eth
-}
 
 export default function Leaderboard({ me, onClose }) {
   const [rows, setRows] = useState(null)

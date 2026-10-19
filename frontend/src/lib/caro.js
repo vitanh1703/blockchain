@@ -1,4 +1,4 @@
-import { AbiCoder, BrowserProvider, Contract, JsonRpcProvider } from 'ethers'
+import { AbiCoder, BrowserProvider, Contract, JsonRpcProvider, formatEther } from 'ethers'
 // File này được sinh ra bởi `npm run deploy` trong smart-contract/
 import deployment from '../contracts/CaroBetting.json'
 
@@ -135,3 +135,10 @@ export const TX_TYPES = [
   { icon: '↩️', label: 'Hoàn cược', sign: 1 },
   { icon: '🏦', label: 'Phí sàn', sign: 1 },
 ]
+
+/** Lời/lỗ (wei, chuỗi) -> "+0.096" / "−0.100" (3 chữ số thập phân). */
+export function formatProfit(wei) {
+  const v = BigInt(wei)
+  const eth = Number(formatEther(v < 0n ? -v : v)).toFixed(3)
+  return v > 0n ? `+${eth}` : v < 0n ? `−${eth}` : eth
+}
