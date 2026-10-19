@@ -1,6 +1,9 @@
 {
-  "address": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-  "chainId": 31337,
+  "address": "0xe78A0F7E598Cc8b0Bb87894B0F60dD2a88d6a8Ab",
+  "chainId": 1337,
+  "network": "ganache",
+  "networkLabel": "Ganache Local",
+  "rpcUrl": "http://127.0.0.1:7545",
   "abi": [
     {
       "inputs": [],
@@ -151,6 +154,31 @@
         {
           "indexed": true,
           "internalType": "address",
+          "name": "from",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "Transferred",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
           "name": "player",
           "type": "address"
         },
@@ -211,6 +239,25 @@
           "internalType": "uint8",
           "name": "",
           "type": "uint8"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        }
+      ],
+      "name": "balanceOf",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
         }
       ],
       "stateMutability": "view",
@@ -516,6 +563,86 @@
     {
       "inputs": [
         {
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "start",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "count",
+          "type": "uint256"
+        }
+      ],
+      "name": "getHistory",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "enum CaroBetting.TxType",
+              "name": "txType",
+              "type": "uint8"
+            },
+            {
+              "internalType": "address",
+              "name": "counterparty",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "amount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "gameId",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "balanceAfter",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint64",
+              "name": "timestamp",
+              "type": "uint64"
+            }
+          ],
+          "internalType": "struct CaroBetting.Transaction[]",
+          "name": "list",
+          "type": "tuple[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "user",
+          "type": "address"
+        }
+      ],
+      "name": "getHistoryCount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "uint256",
           "name": "gameId",
           "type": "uint256"
@@ -558,6 +685,24 @@
         }
       ],
       "name": "resign",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "transfer",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"

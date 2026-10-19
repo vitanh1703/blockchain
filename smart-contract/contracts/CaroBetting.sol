@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-/// @title Cờ Caro đặt cược với ví nội bộ (escrow)
-/// @notice Mọi nước đi đều nằm trên chain và contract tự xác định người thắng,
+/// @title Ví điện tử + Cờ Caro đặt cược (escrow)
+/// @notice Ví: nạp, rút, chuyển ETH giữa người dùng, xem số dư và lịch sử giao dịch.
+///         Game: mọi nước đi đều nằm trên chain và contract tự xác định người thắng,
 ///         nên không ai có thể tự "tuyên bố" thắng để lấy tiền cược.
+/// @dev Không import thư viện ngoài, có thể dán thẳng vào Remix IDE để biên dịch.
 contract CaroBetting {
     uint8 public constant SIZE = 15;
     uint16 public constant CELLS = 225; // SIZE * SIZE
@@ -17,6 +19,17 @@ contract CaroBetting {
         Cancelled  // chủ phòng huỷ khi chưa có ai vào
     }
 
+    enum TxType {
+        Deposit,     // nạp từ MetaMask vào ví
+        Withdraw,    // rút từ ví về MetaMask
+        TransferOut, // chuyển cho người khác
+        TransferIn,  // nhận từ người khác
+        Bet,         // khoá tiền cược khi tạo/vào phòng
+        Win,         // nhận thưởng khi thắng
+        Refund,      // hoàn cược (huỷ phòng / hoà)
+        Fee          // phí sàn (chỉ ví nhận phí)
+    }
+
     struct Game {
         address playerX;    // người tạo phòng, đi trước
         address playerO;    // người vào phòng
@@ -28,14 +41,25 @@ contract CaroBetting {
         uint64 lastMoveAt;  // mốc thời gian để tính hết giờ
     }
 
+    struct Transaction {
+        TxType txType;
+        address counterparty;  // người nhận/gửi khi chuyển tiền, address(0) nếu không có
+        uint256 amount;
+        uint256 gameId;        // 0 nếu không liên quan tới ván cờ
+        uint256 balanceAfter;  // số dư ví sau giao dịch
+        uint64 timestamp;
+    }
+
     address public immutable feeRecipient;
     mapping(address => uint256) public balances;
     mapping(uint256 => Game) public games;
     mapping(uint256 => uint8[CELLS]) private boards; // 0 trống, 1 X, 2 O
+    mapping(address => Transaction[]) private histories;
     uint256 public gameCount;
 
     event Deposited(address indexed player, uint256 amount);
     event Withdrawn(address indexed player, uint256 amount);
+    event Transferred(address indexed from, address indexed to, uint256 amount);
     event RoomCreated(uint256 indexed gameId, address indexed playerX, uint256 betAmount);
     event RoomCancelled(uint256 indexed gameId);
     event RoomJoined(uint256 indexed gameId, address indexed playerO);
@@ -50,17 +74,51 @@ contract CaroBetting {
 
     function deposit() public payable {
         require(msg.value > 0, "So tien nap phai lon hon 0");
-        balances[msg.sender] += msg.value;
-        emit Deposited(msg.sender, msg.value);
+        _deposit();
     }
 
     function withdraw(uint256 amount) external {
         require(amount > 0, "So tien rut phai lon hon 0");
         require(balances[msg.sender] >= amount, "So du khong du");
         balances[msg.sender] -= amount; // trừ trước khi chuyển để chống reentrancy
+        _record(msg.sender, TxType.Withdraw, address(0), amount, 0);
         (bool ok, ) = payable(msg.sender).call{value: amount}("");
         require(ok, "Chuyen tien that bai");
         emit Withdrawn(msg.sender, amount);
+    }
+
+    /// @notice Chuyển tiền trong ví game sang ví game của người khác (không tốn phí sàn).
+    function transfer(address to, uint256 amount) external {
+        require(to != address(0), "Dia chi nguoi nhan khong hop le");
+        require(to != msg.sender, "Khong the chuyen cho chinh minh");
+        require(amount > 0, "So tien chuyen phai lon hon 0");
+        require(balances[msg.sender] >= amount, "So du khong du");
+
+        balances[msg.sender] -= amount;
+        balances[to] += amount;
+        _record(msg.sender, TxType.TransferOut, to, amount, 0);
+        _record(to, TxType.TransferIn, msg.sender, amount, 0);
+        emit Transferred(msg.sender, to, amount);
+    }
+
+    function balanceOf(address user) external view returns (uint256) {
+        return balances[user];
+    }
+
+    function getHistoryCount(address user) external view returns (uint256) {
+        return histories[user].length;
+    }
+
+    /// @notice Lấy lịch sử giao dịch [start, start + count) của một ví (cũ -> mới).
+    function getHistory(address user, uint256 start, uint256 count) external view returns (Transaction[] memory list) {
+        Transaction[] storage all = histories[user];
+        if (start >= all.length) return new Transaction[](0);
+        uint256 end = start + count;
+        if (end > all.length) end = all.length;
+        list = new Transaction[](end - start);
+        for (uint256 i = start; i < end; i++) {
+            list[i - start] = all[i];
+        }
     }
 
     // ---------------- Phòng chơi ----------------
@@ -68,7 +126,7 @@ contract CaroBetting {
     /// @notice Tạo phòng. Có thể gửi kèm ETH để nạp luôn vào ví trước khi trừ cược.
     function createRoom(uint256 betAmount) external payable returns (uint256 gameId) {
         require(betAmount > 0, "Tien cuoc phai lon hon 0");
-        _topUp();
+        if (msg.value > 0) _deposit();
         require(balances[msg.sender] >= betAmount, "So du vi khong du de dat cuoc");
         balances[msg.sender] -= betAmount;
 
@@ -77,6 +135,7 @@ contract CaroBetting {
         g.playerX = msg.sender;
         g.betAmount = betAmount;
         g.status = Status.Waiting;
+        _record(msg.sender, TxType.Bet, address(0), betAmount, gameId);
         emit RoomCreated(gameId, msg.sender, betAmount);
     }
 
@@ -86,6 +145,7 @@ contract CaroBetting {
         require(msg.sender == g.playerX, "Chi chu phong duoc huy");
         g.status = Status.Cancelled;
         balances[g.playerX] += g.betAmount;
+        _record(g.playerX, TxType.Refund, address(0), g.betAmount, gameId);
         emit RoomCancelled(gameId);
     }
 
@@ -95,7 +155,7 @@ contract CaroBetting {
         require(g.playerX != address(0), "Phong khong ton tai");
         require(g.status == Status.Waiting, "Phong da du nguoi hoac da dong");
         require(msg.sender != g.playerX, "Khong the tu choi voi chinh minh");
-        _topUp();
+        if (msg.value > 0) _deposit();
         require(balances[msg.sender] >= g.betAmount, "So du vi khong du de theo cuoc");
 
         balances[msg.sender] -= g.betAmount;
@@ -103,6 +163,7 @@ contract CaroBetting {
         g.status = Status.Playing;
         g.turn = 1;
         g.lastMoveAt = uint64(block.timestamp);
+        _record(msg.sender, TxType.Bet, g.playerX, g.betAmount, gameId);
         emit RoomJoined(gameId, msg.sender);
     }
 
@@ -176,11 +237,17 @@ contract CaroBetting {
 
     // ---------------- Nội bộ ----------------
 
-    function _topUp() private {
-        if (msg.value > 0) {
-            balances[msg.sender] += msg.value;
-            emit Deposited(msg.sender, msg.value);
-        }
+    function _deposit() private {
+        balances[msg.sender] += msg.value;
+        _record(msg.sender, TxType.Deposit, address(0), msg.value, 0);
+        emit Deposited(msg.sender, msg.value);
+    }
+
+    /// @dev Gọi SAU khi đã cập nhật balances để lưu đúng số dư sau giao dịch.
+    function _record(address user, TxType txType, address counterparty, uint256 amount, uint256 gameId) private {
+        histories[user].push(
+            Transaction(txType, counterparty, amount, gameId, balances[user], uint64(block.timestamp))
+        );
     }
 
     function _currentPlayer(Game storage g) private view returns (address) {
@@ -195,8 +262,11 @@ contract CaroBetting {
         uint256 pot = g.betAmount * 2;
         uint256 fee = (pot * FEE_BPS) / 10_000;
         uint256 reward = pot - fee;
+        address loser = winner == g.playerX ? g.playerO : g.playerX;
         balances[winner] += reward;
         balances[feeRecipient] += fee;
+        _record(winner, TxType.Win, loser, reward, gameId);
+        _record(feeRecipient, TxType.Fee, address(0), fee, gameId);
         emit GameEnded(gameId, winner, reward, reason);
     }
 
@@ -205,6 +275,8 @@ contract CaroBetting {
         g.status = Status.Finished;
         balances[g.playerX] += g.betAmount;
         balances[g.playerO] += g.betAmount;
+        _record(g.playerX, TxType.Refund, g.playerO, g.betAmount, gameId);
+        _record(g.playerO, TxType.Refund, g.playerX, g.betAmount, gameId);
         emit GameEnded(gameId, address(0), 0, "draw");
     }
 

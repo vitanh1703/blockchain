@@ -1,4 +1,4 @@
-import { BrowserProvider, Contract, JsonRpcProvider } from 'ethers'
+import { AbiCoder, BrowserProvider, Contract, JsonRpcProvider } from 'ethers'
 // File này được sinh ra bởi `npm run deploy` trong smart-contract/
 import deployment from '../contracts/CaroBetting.json'
 
@@ -8,7 +8,9 @@ export const STATUS_LABEL = ['Chờ đối thủ', 'Đang đánh', 'Đã kết t
 export const MOVE_TIMEOUT = 5 * 60 // giây, khớp với contract
 export const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-const RPC_URL = import.meta.env.VITE_RPC_URL || 'http://127.0.0.1:8545'
+// Mạng được chọn lúc deploy (Hardhat hoặc Ganache); VITE_RPC_URL dùng để ghi đè nếu cần
+const RPC_URL = import.meta.env.VITE_RPC_URL || deployment.rpcUrl || 'http://127.0.0.1:8545'
+export const NETWORK_LABEL = deployment.networkLabel || 'Hardhat Local'
 
 // Đọc dữ liệu trực tiếp từ node (nhanh, không phụ thuộc MetaMask)
 export const readProvider = new JsonRpcProvider(RPC_URL, deployment.chainId, { staticNetwork: true })
@@ -47,7 +49,7 @@ async function ensureChain() {
       params: [
         {
           chainId,
-          chainName: 'Hardhat Local',
+          chainName: NETWORK_LABEL,
           rpcUrls: [RPC_URL],
           nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
         },
@@ -62,6 +64,7 @@ export async function connectWallet() {
   await ensureChain()
   const signer = await new BrowserProvider(window.ethereum).getSigner()
   return {
+    signer,
     address: await signer.getAddress(),
     contract: new Contract(deployment.address, deployment.abi, signer),
   }
@@ -69,6 +72,15 @@ export async function connectWallet() {
 
 export function errorMessage(err) {
   if (err?.code === 'ACTION_REJECTED' || err?.code === 4001) return 'Bạn đã huỷ giao dịch'
+  // Ganache có thể trả lý do revert dạng dữ liệu Error(string) thô
+  const data = err?.data || err?.info?.error?.data?.data || err?.info?.error?.data
+  if (!err?.reason && typeof data === 'string' && data.startsWith('0x08c379a0')) {
+    try {
+      return AbiCoder.defaultAbiCoder().decode(['string'], `0x${data.slice(10)}`)[0]
+    } catch {
+      // bỏ qua, dùng các nguồn bên dưới
+    }
+  }
   return (
     err?.reason ||
     err?.info?.error?.data?.message ||
@@ -100,3 +112,15 @@ export function findWinningLine(board, mark) {
   }
   return new Set()
 }
+
+/** Loại giao dịch trong lịch sử ví, khớp enum TxType của contract. sign: +1 tiền vào, -1 tiền ra. */
+export const TX_TYPES = [
+  { icon: '📥', label: 'Nạp tiền', sign: 1 },
+  { icon: '📤', label: 'Rút tiền', sign: -1 },
+  { icon: '➡️', label: 'Chuyển đi', sign: -1 },
+  { icon: '⬅️', label: 'Nhận tiền', sign: 1 },
+  { icon: '🎲', label: 'Đặt cược', sign: -1 },
+  { icon: '🏆', label: 'Thắng cược', sign: 1 },
+  { icon: '↩️', label: 'Hoàn cược', sign: 1 },
+  { icon: '🏦', label: 'Phí sàn', sign: 1 },
+]

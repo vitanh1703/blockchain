@@ -127,4 +127,70 @@ describe('CaroBetting', () => {
     expect(list[1].status).to.equal(0);
     expect((await caro.getGames(5, 10)).length).to.equal(0);
   });
+
+  describe('Ví điện tử', () => {
+    it('chuyển tiền giữa hai ví', async () => {
+      const { caro, alice, bob } = await loadFixture(deployFixture);
+      await caro.connect(alice).deposit({ value: BET * 2n });
+      await expect(caro.connect(alice).transfer(bob.address, BET))
+        .to.emit(caro, 'Transferred')
+        .withArgs(alice.address, bob.address, BET);
+      expect(await caro.balanceOf(alice.address)).to.equal(BET);
+      expect(await caro.balanceOf(bob.address)).to.equal(BET);
+      // Bob rút được tiền vừa nhận về MetaMask
+      await expect(caro.connect(bob).withdraw(BET)).to.changeEtherBalance(bob, BET);
+    });
+
+    it('chặn chuyển tiền không hợp lệ', async () => {
+      const { caro, alice, bob } = await loadFixture(deployFixture);
+      await caro.connect(alice).deposit({ value: BET });
+      await expect(caro.connect(alice).transfer(bob.address, BET + 1n)).to.be.revertedWith('So du khong du');
+      await expect(caro.connect(alice).transfer(alice.address, 1)).to.be.revertedWith('Khong the chuyen cho chinh minh');
+      await expect(caro.connect(alice).transfer(ethers.ZeroAddress, 1)).to.be.revertedWith(
+        'Dia chi nguoi nhan khong hop le',
+      );
+      await expect(caro.connect(alice).transfer(bob.address, 0)).to.be.revertedWith('So tien chuyen phai lon hon 0');
+    });
+
+    it('ghi lịch sử nạp, chuyển, rút với số dư sau giao dịch', async () => {
+      const { caro, alice, bob } = await loadFixture(deployFixture);
+      await caro.connect(alice).deposit({ value: BET * 3n });
+      await caro.connect(alice).transfer(bob.address, BET);
+      await caro.connect(alice).withdraw(BET);
+
+      expect(await caro.getHistoryCount(alice.address)).to.equal(3);
+      const h = await caro.getHistory(alice.address, 0, 10);
+      expect(h.map((t) => Number(t.txType))).to.deep.equal([0, 2, 1]); // Deposit, TransferOut, Withdraw
+      expect(h.map((t) => t.balanceAfter)).to.deep.equal([BET * 3n, BET * 2n, BET]);
+      expect(h[1].counterparty).to.equal(bob.address);
+      expect(h[0].timestamp).to.be.greaterThan(0);
+
+      const hb = await caro.getHistory(bob.address, 0, 10);
+      expect(hb.length).to.equal(1);
+      expect(Number(hb[0].txType)).to.equal(3); // TransferIn
+      expect(hb[0].counterparty).to.equal(alice.address);
+
+      // phân trang
+      expect((await caro.getHistory(alice.address, 1, 1))[0].txType).to.equal(2);
+      expect((await caro.getHistory(alice.address, 5, 10)).length).to.equal(0);
+    });
+
+    it('ghi lịch sử đặt cược, thắng, phí sàn và hoàn cược', async () => {
+      const { caro, owner, alice, bob } = await loadFixture(playingFixture);
+      await caro.connect(bob).resign(1);
+      const ha = await caro.getHistory(alice.address, 0, 10);
+      // createRoom gửi kèm ETH: Deposit rồi Bet; sau đó Win
+      expect(ha.map((t) => Number(t.txType))).to.deep.equal([0, 4, 5]);
+      expect(ha[1].gameId).to.equal(1);
+      expect(ha[2].amount).to.equal((BET * 2n * 98n) / 100n);
+      expect(ha[2].counterparty).to.equal(bob.address);
+      const ho = await caro.getHistory(owner.address, 0, 10);
+      expect(Number(ho[0].txType)).to.equal(7); // Fee
+
+      await caro.connect(alice).createRoom(BET);
+      await caro.connect(alice).cancelRoom(2);
+      const last = await caro.getHistory(alice.address, 3, 10);
+      expect(last.map((t) => Number(t.txType))).to.deep.equal([4, 6]); // Bet, Refund
+    });
+  });
 });

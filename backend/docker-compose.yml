@@ -1,0 +1,25 @@
+name: caro-betting
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: caro_betting_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: caro_betting
+      MYSQL_USER: caro
+      MYSQL_PASSWORD: caro
+    command: ['--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci']
+    ports:
+      - '3307:3306'
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', '127.0.0.1', '-ucaro', '-pcaro']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  mysql_data:

@@ -4,15 +4,20 @@
   "description": "Smart contract Co Caro dat cuoc (Hardhat)",
   "scripts": {
     "node": "hardhat node",
+    "ganache": "ganache --port 7545 --chain.chainId 1337 --wallet.deterministic",
     "compile": "hardhat compile",
     "test": "hardhat test",
-    "deploy": "hardhat run scripts/deploy.js --network localhost"
+    "deploy": "hardhat run scripts/deploy.js --network localhost",
+    "deploy:ganache": "hardhat run scripts/deploy.js --network ganache",
+    "demo:ganache": "hardhat run scripts/demo-wallet.js --network ganache",
+    "demo": "hardhat run scripts/demo-wallet.js --network localhost"
   },
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "ganache": "^7.9.2",
     "hardhat": "^2.29.1"
   }
 }
