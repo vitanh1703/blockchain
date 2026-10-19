@@ -5,3 +5,6 @@ dist/
 *.log
 .vscode/
 .DS_Store
+
+# Dự án riêng, không đẩy lên repo này
+web_an_toan_blockchain/
