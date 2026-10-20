@@ -3,6 +3,7 @@ import { formatEther } from 'ethers'
 import AccountBar from './components/AccountBar'
 import Lobby from './components/Lobby'
 import GameBoard from './components/GameBoard'
+import InstallMetaMask from './components/InstallMetaMask'
 import Leaderboard from './components/Leaderboard'
 import LoginPage from './components/LoginPage'
 import NicknameDialog from './components/NicknameDialog'
@@ -35,7 +36,7 @@ function App() {
   const [activeId, setActiveId] = useState(null)
   const [board, setBoard] = useState(null)
   const [lastMove, setLastMove] = useState(null)
-  const [modal, setModal] = useState(null) // 'leaderboard' | 'rules' | 'nickname' | 'history' | null
+  const [modal, setModal] = useState(null) // 'leaderboard' | 'rules' | 'nickname' | 'history' | 'install' | null
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState(null)
   const boardRef = useRef({ id: null, cells: null })
@@ -124,7 +125,8 @@ function App() {
     try {
       setWallet(await connectWallet())
     } catch (err) {
-      setNotice({ type: 'error', text: errorMessage(err) })
+      if (err.code === 'METAMASK_MISSING') setModal('install')
+      else setNotice({ type: 'error', text: errorMessage(err) })
     }
   }, [])
 
@@ -317,6 +319,7 @@ function App() {
 
       {modal === 'leaderboard' && <Leaderboard me={myAddress} onClose={() => setModal(null)} />}
       {modal === 'rules' && <RulesModal onClose={() => setModal(null)} />}
+      {modal === 'install' && <InstallMetaMask onClose={() => setModal(null)} />}
       {modal === 'history' && <TxHistory me={wallet?.address} nameOf={nameOf} onClose={() => setModal(null)} />}
       {modal === 'nickname' && (
         <NicknameDialog current={user.nickname} onSave={saveNickname} onClose={() => setModal(null)} />

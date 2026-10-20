@@ -58,8 +58,37 @@ async function ensureChain() {
   }
 }
 
+/** Link cài MetaMask phù hợp trình duyệt đang dùng. */
+export function metaMaskInstallLink() {
+  const ua = navigator.userAgent
+  if (/Firefox\//.test(ua)) {
+    return { url: 'https://addons.mozilla.org/firefox/addon/ether-metamask/', store: 'Firefox Add-ons' }
+  }
+  if (/Edg\//.test(ua)) {
+    return {
+      url: 'https://microsoftedge.microsoft.com/addons/detail/metamask/ejbalbakoplchlghecdalmeeeajnimhm',
+      store: 'Edge Add-ons',
+    }
+  }
+  if (/Chrome\//.test(ua)) {
+    // Chrome, Brave, Cốc Cốc, Opera đều cài được từ Chrome Web Store
+    return {
+      url: 'https://chromewebstore.google.com/detail/metamask/nkbihfbeogaeaoehlefnkodbefgpgknn',
+      store: 'Chrome Web Store',
+    }
+  }
+  return { url: 'https://metamask.io/download/', store: 'metamask.io' }
+}
+
+export class MetaMaskMissingError extends Error {
+  constructor() {
+    super('Chưa cài MetaMask')
+    this.code = 'METAMASK_MISSING'
+  }
+}
+
 export async function connectWallet() {
-  if (!window.ethereum) throw new Error('Chưa cài MetaMask')
+  if (!window.ethereum) throw new MetaMaskMissingError()
   await window.ethereum.request({ method: 'eth_requestAccounts' })
   await ensureChain()
   const signer = await new BrowserProvider(window.ethereum).getSigner()
