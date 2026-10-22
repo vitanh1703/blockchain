@@ -45,6 +45,17 @@ const SCHEMA = [
     INDEX idx_matches_x (player_x),
     INDEX idx_matches_o (player_o)
   )`,
+  // Nước đi off-chain (state channel), mỗi nước kèm chữ ký của người đi. Chỉ gửi lên blockchain khi kết thúc
+  // hoặc tranh chấp. Backend chỉ chuyển tiếp: contract kiểm tra lại chữ ký nên backend không làm giả được.
+  `CREATE TABLE IF NOT EXISTS offchain_moves (
+    game_id    INT UNSIGNED      NOT NULL,
+    move_index SMALLINT UNSIGNED NOT NULL,                -- 0, 1, 2… (chẵn: X, lẻ: O)
+    x          TINYINT UNSIGNED  NOT NULL,
+    y          TINYINT UNSIGNED  NOT NULL,
+    signature  CHAR(132)         NOT NULL,                -- 0x + 65 byte
+    created_at BIGINT            NOT NULL,                -- unix ms, để tính giờ khi đánh off-chain
+    PRIMARY KEY (game_id, move_index)
+  )`,
   `CREATE TABLE IF NOT EXISTS meta (
     meta_key   VARCHAR(64)  NOT NULL PRIMARY KEY,
     meta_value VARCHAR(255) NULL

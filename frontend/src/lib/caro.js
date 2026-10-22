@@ -35,6 +35,10 @@ export function toGame(id, raw) {
     turn: Number(raw.turn),
     moveCount: Number(raw.moveCount),
     lastMoveAt: Number(raw.lastMoveAt),
+    sessionX: raw.sessionX,
+    sessionO: raw.sessionO,
+    stateHash: raw.stateHash,
+    disputed: raw.disputed,
   }
 }
 

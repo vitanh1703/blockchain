@@ -12,6 +12,7 @@ const MAX_RANGE = 2000; // số block tối đa mỗi lần query log
 
 let provider = null;
 let contract = null;
+let chainId = null;
 let deploymentMtime = 0;
 let lastError = null;
 
@@ -25,10 +26,12 @@ function loadDeployment() {
   // `npm run deploy` ghi đè file này, nên đọc lại khi file thay đổi
   if (!contract || stat.mtimeMs !== deploymentMtime) {
     // Dùng RPC của mạng đã deploy (Hardhat 8545 hoặc Ganache 7545)
-    const { address, abi, rpcUrl } = JSON.parse(fs.readFileSync(DEPLOYMENT_FILE, 'utf8'));
+    const deployment = JSON.parse(fs.readFileSync(DEPLOYMENT_FILE, 'utf8'));
+    const { address, abi, rpcUrl } = deployment;
     provider?.destroy();
     provider = new JsonRpcProvider(rpcUrl || DEFAULT_RPC_URL, undefined, { staticNetwork: true, polling: false });
     contract = new Contract(address, abi, provider);
+    chainId = deployment.chainId;
     console.log(`[indexer] Theo dõi contract ${address} tại ${rpcUrl || DEFAULT_RPC_URL}`);
     deploymentMtime = stat.mtimeMs;
   }
@@ -38,6 +41,7 @@ function loadDeployment() {
 async function resetMatches(reason) {
   console.log(`[indexer] Xoá dữ liệu trận cũ: ${reason}`);
   await query('DELETE FROM matches');
+  await query('DELETE FROM offchain_moves');
   await setMeta('lastBlock', null);
   await setMeta('lastBlockHash', null);
 }
@@ -124,4 +128,10 @@ async function indexerStatus() {
   };
 }
 
-module.exports = { startIndexer, indexerStatus };
+/** Contract đang theo dõi (để API kiểm tra trạng thái ván), null nếu chưa deploy. */
+function getDeployment() {
+  const caro = loadDeployment();
+  return caro ? { contract: caro, address: caro.target, chainId } : null;
+}
+
+module.exports = { startIndexer, indexerStatus, getDeployment };

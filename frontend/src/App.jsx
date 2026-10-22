@@ -9,15 +9,56 @@ import LoginPage from './components/LoginPage'
 import NicknameDialog from './components/NicknameDialog'
 import RulesModal from './components/RulesModal'
 import TxHistory from './components/TxHistory'
-import { connectWallet, errorMessage, readContract, readProvider, sameAddress, shortAddress, toGame } from './lib/caro'
+import {
+  SIZE,
+  STATUS,
+  connectWallet,
+  errorMessage,
+  readContract,
+  readProvider,
+  sameAddress,
+  shortAddress,
+  toGame,
+} from './lib/caro'
 import { api, goToGoogleLogin, linkWallet, loadToken, saveToken, takeAuthResultFromUrl } from './lib/api'
+import { fetchMoves, getSessionWallet, isFiveInRow, postMove, replay, signMove } from './lib/channel'
 import { useTheme } from './lib/theme'
 import './App.css'
 
 const POLL_MS = 2000
+const GAME_POLL_MS = 1000
 const LOBBY_LIMIT = 50
 const NAMES_POLL_MS = 5000
 const NOTICE_MS = 3500
+
+/**
+ * Ghép trạng thái ván từ chain và các nước off-chain (relay) thành thứ hiển thị trên bàn cờ.
+ * Các nước off-chain chỉ được dùng nếu nối tiếp đúng trạng thái trên chain (so digest).
+ */
+function buildView(game, chainCells, relay) {
+  const moves = relay?.moves || []
+  const r = replay(game.id, moves)
+  const consistent = moves.length >= game.moveCount && r.hashes[game.moveCount] === game.stateHash
+  const useRelay = consistent && moves.length > game.moveCount
+  const playing = game.status === STATUS.Playing
+  const offchain = playing && !game.disputed
+  return {
+    cells: useRelay ? r.cells : chainCells,
+    turn: useRelay ? r.turn : game.turn,
+    moveCount: useRelay ? moves.length : game.moveCount,
+    hash: useRelay ? r.hash : game.stateHash,
+    // Đã có 5 quân off-chain nhưng chưa gửi kết quả lên chain
+    winnerMark: playing && useRelay ? r.winnerMark : 0,
+    // Nước đã đánh off-chain mà chain chưa biết (gửi kèm khi chốt ván / tranh chấp)
+    pending: consistent ? moves.slice(game.moveCount) : [],
+    offchain,
+    // Đánh off-chain: tính giờ theo relay (chỉ để báo đối thủ treo máy). Tranh chấp: giờ trên chain.
+    clockTurn: offchain ? (useRelay ? r.turn : game.turn) : game.turn,
+    lastAt: offchain ? (relay?.lastAt ?? game.lastMoveAt) : game.lastMoveAt,
+  }
+}
+
+const submitArgs = (gameId, moves) => [gameId, moves.map((m) => m.x), moves.map((m) => m.y), moves.map((m) => m.sig)]
 
 // Đọc kết quả Google redirect (#token / #error) một lần khi tải trang
 const AUTH_FROM_URL = takeAuthResultFromUrl()
@@ -34,7 +75,8 @@ function App() {
   const [walletBalance, setWalletBalance] = useState(null)
   const [games, setGames] = useState([])
   const [activeId, setActiveId] = useState(null)
-  const [board, setBoard] = useState(null)
+  const [activeGame, setActiveGame] = useState(null)
+  const [view, setView] = useState(null) // bàn cờ đang mở: ghép chain + nước off-chain
   const [lastMove, setLastMove] = useState(null)
   const [modal, setModal] = useState(null) // 'leaderboard' | 'rules' | 'nickname' | 'history' | 'install' | null
   const [busy, setBusy] = useState(false)
@@ -77,31 +119,39 @@ function App() {
         setWalletBalance(bal)
       }
       if (activeId) {
-        const cells = (await readContract.getBoard(activeId)).map(Number)
+        const [raw, chainCells, relay] = await Promise.all([
+          readContract.getGame(activeId),
+          readContract.getBoard(activeId),
+          fetchMoves(activeId).catch(() => null), // backend tắt: vẫn xem được phần đã lên chain
+        ])
+        const game = toGame(activeId, raw)
+        const next = buildView(game, chainCells.map(Number), relay)
         // So với lần đọc trước để tô sáng nước vừa đi
         const prev = boardRef.current
         if (prev.id === activeId && prev.cells) {
-          const changed = cells.findIndex((c, i) => c !== prev.cells[i])
+          const changed = next.cells.findIndex((c, i) => c !== prev.cells[i])
           if (changed !== -1) setLastMove(changed)
         }
-        boardRef.current = { id: activeId, cells }
-        setBoard(cells)
+        boardRef.current = { id: activeId, cells: next.cells }
+        setActiveGame(game)
+        setView(next)
       }
     } catch (err) {
       setNotice({ type: 'error', text: `Không đọc được dữ liệu từ blockchain: ${errorMessage(err)}` })
     }
   }, [wallet, activeId])
 
+  const inGame = activeId != null
   useEffect(() => {
     if (!user) return
-    // Đọc blockchain ngay rồi lặp lại mỗi POLL_MS
+    // Đọc blockchain ngay rồi lặp lại; đang mở bàn cờ thì đọc nhanh hơn để thấy nước off-chain của đối thủ
     const first = setTimeout(refresh, 0)
-    const id = setInterval(refresh, POLL_MS)
+    const id = setInterval(refresh, inGame ? GAME_POLL_MS : POLL_MS)
     return () => {
       clearTimeout(first)
       clearInterval(id)
     }
-  }, [refresh, user])
+  }, [refresh, user, inGame])
 
   // Tên hiển thị của mọi ví đã liên kết, lấy từ backend
   useEffect(() => {
@@ -196,8 +246,46 @@ function App() {
     }
   }
 
+  /** Gửi các nước off-chain (kèm chữ ký) lên contract: chốt kết quả, đưa ván lên chain hoặc đi nước khi tranh chấp. */
+  function submitMoves(successText, moves) {
+    return send(successText, (c) => c.submitMoves(...submitArgs(activeId, moves)))
+  }
+
+  async function playMove(x, y) {
+    const g = activeGame
+    const v = view
+    const index = v.moveCount
+    setBusy(true)
+    setNotice(null)
+    try {
+      const sig = await signMove({ game: g, mark: v.turn, index, x, y, prevHash: v.hash, signer: wallet.signer })
+      const move = { x, y, sig }
+      if (!v.offchain) {
+        // Ván đã đưa lên chain: mỗi nước là một giao dịch (kèm các nước off-chain chain chưa có)
+        setBusy(false)
+        await submitMoves(null, [...v.pending, move])
+        return
+      }
+      await postMove(g.id, { index, ...move })
+      const cells = [...v.cells]
+      cells[y * SIZE + x] = v.turn
+      await refresh()
+      // Thắng hoặc kín bàn: gửi cả ván lên contract trong 1 giao dịch để nhận thưởng / hoàn cược
+      if (isFiveInRow(cells, x, y, v.turn) || index + 1 === SIZE * SIZE) {
+        setBusy(false)
+        await submitMoves('Đã gửi kết quả ván lên blockchain', [...v.pending, move])
+      }
+    } catch (err) {
+      setNotice({ type: 'error', text: errorMessage(err) })
+      await refresh()
+    } finally {
+      setBusy(false)
+    }
+  }
+
   function openGame(id) {
-    setBoard(null)
+    setView(null)
+    setActiveGame(null)
     setLastMove(null)
     boardRef.current = { id: null, cells: null }
     setActiveId(id)
@@ -214,7 +302,8 @@ function App() {
 
   // Phần còn thiếu so với tiền cược sẽ gửi kèm giao dịch để nạp luôn
   const topUpFor = (bet) => (walletBalance != null && walletBalance < bet ? bet - walletBalance : 0n)
-  const activeGame = games.find((g) => g.id === activeId)
+  // Khoá phiên đăng ký vào contract khi tạo/vào phòng để ký nước đi không cần popup
+  const sessionKey = () => getSessionWallet(wallet.address).address
   const walletMismatch = wallet && !sameAddress(user.walletAddress, wallet.address)
   // Nhận ra "bạn" trên bảng xếp hạng kể cả khi chưa mở MetaMask (dùng ví đã liên kết)
   const myAddress = wallet?.address || user.walletAddress
@@ -273,13 +362,16 @@ function App() {
 
       {activeId ? (
         <GameBoard
-          game={activeGame}
-          board={board}
+          game={activeGame?.id === activeId ? activeGame : null}
+          view={view}
           lastMove={lastMove}
           me={wallet?.address}
           nameOf={nameOf}
           busy={busy}
-          onMove={(x, y) => send(null, (c) => c.makeMove(activeId, x, y))}
+          onMove={playMove}
+          onSettle={() => submitMoves('Đã gửi kết quả ván lên blockchain', view.pending)}
+          onDispute={() => submitMoves('Đã đưa ván lên blockchain, đối thủ có 5 phút để đi', view.pending)}
+          onCatchUp={() => submitMoves('Đã gửi các nước đã đi lên blockchain', view.pending)}
           onResign={() => {
             if (window.confirm('Đầu hàng sẽ mất tiền cược. Bạn chắc chứ?')) {
               send('Bạn đã đầu hàng', (c) => c.resign(activeId))
@@ -294,9 +386,9 @@ function App() {
           me={wallet?.address}
           nameOf={nameOf}
           busy={busy}
-          onCreate={(bet) => send('Tạo phòng thành công, đang chờ đối thủ…', (c) => c.createRoom(bet, { value: topUpFor(bet) }))}
+          onCreate={(bet) => send('Tạo phòng thành công, đang chờ đối thủ…', (c) => c.createRoom(bet, sessionKey(), { value: topUpFor(bet) }))}
           onJoin={async (g) => {
-            if (await send(`Đã vào phòng #${g.id}`, (c) => c.joinRoom(g.id, { value: topUpFor(g.betAmount) }))) {
+            if (await send(`Đã vào phòng #${g.id}`, (c) => c.joinRoom(g.id, sessionKey(), { value: topUpFor(g.betAmount) }))) {
               openGame(g.id)
             }
           }}

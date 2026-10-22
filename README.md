@@ -4,13 +4,13 @@
 
 Đề tài **Xây dựng hợp đồng thông minh quản lý ví điện tử đơn giản**: cho phép nạp, rút, chuyển token; kiểm tra số dư; ghi lại lịch sử giao dịch. Smart contract viết bằng **Solidity**, chạy trên **Ganache**, có thể biên dịch và thử trực tiếp trên **Remix IDE**.
 
-Để minh hoạ ví được dùng trong thực tế, dự án kết hợp ví với game **Cờ Caro 15×15 đặt cược**: hai người chơi khoá tiền cược vào smart contract (escrow), mọi nước đi được lưu trên blockchain, contract tự kiểm tra 5 quân liên tiếp và trả thưởng vào ví người thắng — không ai có thể gian lận kết quả.
+Để minh hoạ ví được dùng trong thực tế, dự án kết hợp ví với game **Cờ Caro 15×15 đặt cược**: hai người chơi khoá tiền cược vào smart contract (escrow), hai người đánh off-chain (mỗi nước được ký số, không tốn gas), cuối ván gửi cả chuỗi nước đi lên contract trong 1 giao dịch; contract kiểm tra từng chữ ký, tự xác định 5 quân liên tiếp và trả thưởng vào ví người thắng — không ai có thể gian lận kết quả.
 
 ### Tính năng chính
 
 - **Ví điện tử trên smart contract**: nạp, rút, chuyển ETH giữa người dùng, kiểm tra số dư
 - **Lịch sử giao dịch lưu trên blockchain**: loại giao dịch, số tiền, người đối ứng, số dư sau giao dịch, thời gian
-- **Cờ Caro đặt cược**: tạo/vào/huỷ phòng, đánh cờ on-chain, hết giờ, đầu hàng, trả thưởng tự động (phí sàn 2%)
+- **Cờ Caro đặt cược**: tạo/vào/huỷ phòng, đánh cờ off-chain bằng state channel (cả ván chỉ 3 giao dịch), đưa ván lên chain khi đối thủ treo máy, hết giờ, đầu hàng, trả thưởng tự động (phí sàn 2%)
 - **Đăng nhập bằng Google** (OAuth 2.0), chuyển qua lại giữa các tài khoản
 - **Liên kết ví MetaMask** với tài khoản bằng chữ ký số (chứng minh sở hữu ví)
 - **Bảng xếp hạng** đồng bộ từ sự kiện của smart contract (không thể làm giả); **Top 5 cao thủ** hiện ngay ở sảnh chờ
@@ -67,7 +67,7 @@ blockchain/
 │   │   ├── deploy.js               # Deploy, ghi địa chỉ + ABI + RPC cho frontend/backend
 │   │   └── demo-wallet.js          # Demo nạp/rút/chuyển/số dư/lịch sử trên Ganache
 │   ├── test/
-│   │   └── CaroBetting.test.js     # 15 unit test
+│   │   └── CaroBetting.test.js     # 21 unit test
 │   ├── hardhat.config.js           # Mạng localhost (Hardhat) và ganache
 │   └── package.json
 ├── backend/                        # API Express + MySQL
@@ -143,6 +143,7 @@ MySQL chạy ở cổng **3307** (tránh đụng MySQL cài sẵn ở 3306), dat
 - `users` — Tài khoản Google (google_id, email, tên, ảnh), nickname, ví MetaMask đã liên kết
 - `sessions` — Phiên đăng nhập (token, hạn dùng)
 - `matches` — Kết quả trận đồng bộ từ sự kiện `GameEnded` trên blockchain
+- `offchain_moves` — Nước đi off-chain kèm chữ ký, chuyển tiếp giữa hai người chơi (backend chỉ chuyển tiếp, contract kiểm tra lại chữ ký)
 - `meta` — Trạng thái đồng bộ (block cuối đã đọc)
 
 > Số dư và lịch sử giao dịch của ví **không** lưu trong MySQL mà lưu trên blockchain (trong smart contract).
@@ -359,10 +360,29 @@ function claimVictory(uint256 _gameId, address _winner) public {
 - Kết quả phụ thuộc vào web/backend "báo" lên → không còn tính minh bạch của blockchain
 
 #### Cách khắc phục trong dự án:
-✅ Bỏ hàm `claimVictory`; mọi nước đi gửi lên contract qua `makeMove(id, x, y)`  
-✅ Contract tự kiểm tra lượt, ô trống, và 5 quân liên tiếp (ngang, dọc, 2 đường chéo)  
+✅ Bỏ hàm `claimVictory`; contract tự tính kết quả từ chuỗi nước đi có chữ ký: `submitMoves(id, xs, ys, sigs)`  
+✅ Contract kiểm tra chữ ký từng nước, lượt, ô trống, và 5 quân liên tiếp (ngang, dọc, 2 đường chéo)  
 ✅ Người thắng chỉ được xác định bởi contract → không thể gian lận  
-✅ `claimTimeout` chỉ cho **đối thủ của người hết giờ** nhận thắng, sau đúng 5 phút  
+✅ `claimTimeout` chỉ dùng được sau khi ván đã đưa lên chain, và chỉ cho **đối thủ của người hết giờ** nhận thắng sau đúng 5 phút  
+
+### Đánh cờ off-chain (state channel)
+
+Trước đây mỗi nước cờ là 1 giao dịch: một ván 20–40 nước là 20–40 lần bấm Xác nhận MetaMask. Nay:
+
+| Bước | Giao dịch / popup MetaMask |
+|---|---|
+| Tạo phòng (đăng ký luôn khoá phiên) | 1 |
+| Vào phòng (đăng ký luôn khoá phiên) | 1 |
+| Mỗi nước cờ | 0 |
+| Gửi kết quả (nước thắng tự gửi) | 1 |
+
+Cách hoạt động:
+- **Khoá phiên**: khi tạo/vào phòng, trình duyệt sinh một ví tạm và đăng ký vào contract trong cùng giao dịch. Nước đi được ký bằng khoá này nên không hiện popup. Khoá phiên chỉ ký được nước đi, không chuyển được tiền. Nếu mất khoá (đổi máy, xoá dữ liệu trình duyệt) thì app ký bằng MetaMask thay thế.
+- **Chuỗi chữ ký**: nước thứ i được ký trên `keccak256(contract, chainId, gameId, i, x, y, digest nước i-1)`. Chữ ký gắn với toàn bộ lịch sử trước nó, nên không thể đổi thứ tự, bỏ bớt hay sửa nước đi.
+- **Relay**: backend (`/api/games/:id/moves`, bảng `offchain_moves`) chuyển nước đi cho đối thủ. Nó kiểm tra chữ ký giống contract nhưng không giữ tiền và không quyết định thắng thua.
+- **Đối thủ treo máy**: quá 5 phút không đi, người còn lại bấm *Đưa ván lên blockchain* (1 giao dịch). Từ đó ván đánh trên chain, mỗi nước 1 giao dịch, người đến lượt có 5 phút, hết giờ thì đối thủ gọi `claimTimeout`.
+- **Bị đưa ván cũ lên chain**: người còn lại gửi các nước mới hơn (đã có chữ ký của cả hai) để chống lại. Contract chỉ tính giờ cho người thực sự đến lượt.
+- **Giới hạn**: khi ván đang tranh chấp, cả hai cần mở app để phản hồi trong 5 phút; nếu backend tắt thì không chuyển được nước off-chain (vẫn đầu hàng hoặc đưa ván lên chain được).
 
 ### Các biện pháp an toàn khác
 

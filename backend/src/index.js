@@ -4,6 +4,7 @@ const cors = require('cors');
 const { initDb, DB_NAME, dbConfig } = require('./db');
 const auth = require('./auth');
 const leaderboard = require('./leaderboard');
+const moves = require('./moves');
 const { startIndexer } = require('./indexer');
 
 const app = express();
@@ -20,6 +21,7 @@ app.get('/api/health', (req, res) => {
 app.get('/auth/google/callback', auth.googleCallback);
 app.use('/api', auth.router);
 app.use('/api', leaderboard.router);
+app.use('/api', moves.router);
 
 app.use((req, res) => {
   res.status(404).json({ message: 'Không tìm thấy' });

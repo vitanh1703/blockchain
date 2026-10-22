@@ -1,5 +1,5 @@
 {
-  "address": "0xe78A0F7E598Cc8b0Bb87894B0F60dD2a88d6a8Ab",
+  "address": "0x5b1869D9A4C187F2EAa108f3062412ecf0526b24",
   "chainId": 1337,
   "network": "ganache",
   "networkLabel": "Ganache Local",
@@ -314,6 +314,11 @@
           "internalType": "uint256",
           "name": "betAmount",
           "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "sessionKey",
+          "type": "address"
         }
       ],
       "name": "createRoom",
@@ -409,6 +414,26 @@
           "internalType": "uint64",
           "name": "lastMoveAt",
           "type": "uint64"
+        },
+        {
+          "internalType": "address",
+          "name": "sessionX",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "sessionO",
+          "type": "address"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "stateHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bool",
+          "name": "disputed",
+          "type": "bool"
         }
       ],
       "stateMutability": "view",
@@ -484,6 +509,26 @@
               "internalType": "uint64",
               "name": "lastMoveAt",
               "type": "uint64"
+            },
+            {
+              "internalType": "address",
+              "name": "sessionX",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "sessionO",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "stateHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bool",
+              "name": "disputed",
+              "type": "bool"
             }
           ],
           "internalType": "struct CaroBetting.Game",
@@ -550,6 +595,26 @@
               "internalType": "uint64",
               "name": "lastMoveAt",
               "type": "uint64"
+            },
+            {
+              "internalType": "address",
+              "name": "sessionX",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "sessionO",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "stateHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "bool",
+              "name": "disputed",
+              "type": "bool"
             }
           ],
           "internalType": "struct CaroBetting.Game[]",
@@ -646,6 +711,11 @@
           "internalType": "uint256",
           "name": "gameId",
           "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "sessionKey",
+          "type": "address"
         }
       ],
       "name": "joinRoom",
@@ -661,6 +731,11 @@
           "type": "uint256"
         },
         {
+          "internalType": "uint256",
+          "name": "index",
+          "type": "uint256"
+        },
+        {
           "internalType": "uint8",
           "name": "x",
           "type": "uint8"
@@ -669,11 +744,22 @@
           "internalType": "uint8",
           "name": "y",
           "type": "uint8"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "prevHash",
+          "type": "bytes32"
         }
       ],
-      "name": "makeMove",
-      "outputs": [],
-      "stateMutability": "nonpayable",
+      "name": "moveDigest",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
       "type": "function"
     },
     {
@@ -685,6 +771,34 @@
         }
       ],
       "name": "resign",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "gameId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint8[]",
+          "name": "xs",
+          "type": "uint8[]"
+        },
+        {
+          "internalType": "uint8[]",
+          "name": "ys",
+          "type": "uint8[]"
+        },
+        {
+          "internalType": "bytes[]",
+          "name": "sigs",
+          "type": "bytes[]"
+        }
+      ],
+      "name": "submitMoves",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
